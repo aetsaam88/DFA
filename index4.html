@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NFA Master Simulator - Part 3</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f9; padding: 20px; text-align: center; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        select { padding: 12px; width: 90%; border-radius: 8px; border: 2px solid #2ecc71; font-size: 16px; margin-bottom: 20px; outline: none; cursor: pointer; }
+        
+        .canvas { position: relative; width: 800px; height: 380px; margin: 20px auto; border: 1px solid #ddd; background: #fff; border-radius: 12px; overflow: hidden; }
+        .state { 
+            width: 55px; height: 55px; border-radius: 50%; border: 3px solid #2c3e50; 
+            position: absolute; display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; background: white; z-index: 10; transition: 0.3s;
+        }
+        .accept { border: 6px double #27ae60; background: #fafffa; }
+        .active { background: #2ecc71 !important; color: white; transform: scale(1.1); box-shadow: 0 0 15px #2ecc71; }
+
+        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .arrow { stroke: #95a5a6; stroke-width: 2.2; fill: none; marker-end: url(#arrowhead); transition: 0.3s; }
+        .lbl { font-size: 14px; font-weight: bold; fill: #27ae60; }
+
+        .controls { margin-top: 25px; display: flex; justify-content: center; gap: 10px; }
+        input { padding: 12px; width: 280px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
+        .btn { padding: 12px 25px; background: #2ecc71; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        #status { font-size: 22px; margin-top: 20px; font-weight: bold; min-height: 35px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>NFA Simulator (Final 10 Patterns)</h2>
+    
+    <select id="nfaMenu" onchange="setupNFA()">
+        <option value="atLeast2B">1. At least two 'b's</option>
+        <option value="subAAB">2. Substring 'aab'</option>
+        <option value="subBBA">3. Substring 'bba'</option>
+        <option value="endAB">4. Ending with 'ab'</option>
+        <option value="endBA">5. Ending with 'ba'</option>
+        <option value="sameSymbol">6. Start and End with same symbol</option>
+        <option value="aStarBStar">7. Pattern a*b* (a's then b's)</option>
+        <option value="bStarAStar">8. Pattern b*a* (b's then a's)</option>
+        <option value="anyAButOneB">9. Any number of a's, but at least one b</option>
+        <option value="anyBButOneA">10. Any number of b's, but at least one a</option>
+    </select>
+
+    <div class="canvas" id="canvas">
+        <svg id="svgLines">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#95a5a6"/>
+                </marker>
+            </defs>
+        </svg>
+        <div id="q0" class="state" style="top:160px; left:60px;">q0</div>
+        <div id="q1" class="state" style="top:160px; left:240px;">q1</div>
+        <div id="q2" class="state" style="top:160px; left:420px;">q2</div>
+        <div id="q3" class="state" style="top:160px; left:600px;">q3</div>
+        <div id="q4" class="state" style="top:60px; left:240px; display:none;">q4</div>
+        <div id="q5" class="state" style="top:260px; left:240px; display:none;">q5</div>
+    </div>
+
+    <div class="controls">
+        <input id="strInput" placeholder="Enter string (e.g., aab, bba)">
+        <button class="btn" onclick="startNFA()">Run Simulation</button>
+    </div>
+    <div id="status"></div>
+</div>
+
+<script>
+const nfaConfigs = {
+    atLeast2B: { acc:['q2'], trans:[{f:'q0',v:'a,b',t:'q0'},{f:'q0',v:'b',t:'q1'},{f:'q1',v:'b',t:'q2'},{f:'q2',v:'a,b',t:'q2'}] },
+    subAAB: { acc:['q3'], trans:[{f:'q0',v:'a,b',t:'q0'},{f:'q0',v:'a',t:'q1'},{f:'q1',v:'a',t:'q2'},{f:'q2',v:'b',t:'q3'},{f:'q3',v:'a,b',t:'q3'}] },
+    subBBA: { acc:['q3'], trans:[{f:'q0',v:'a,b',t:'q0'},{f:'q0',v:'b',t:'q1'},{f:'q1',v:'b',t:'q2'},{f:'q2',v:'a',t:'q3'},{f:'q3',v:'a,b',t:'q3'}] },
+    endAB: { acc:['q2'], trans:[{f:'q0',v:'a,b',t:'q0'},{f:'q0',v:'a',t:'q1'},{f:'q1',v:'b',t:'q2'}] },
+    endBA: { acc:['q2'], trans:[{f:'q0',v:'a,b',t:'q0'},{f:'q0',v:'b',t:'q1'},{f:'q1',v:'a',t:'q2'}] },
+    sameSymbol: { acc:['q2','q5'], trans:[{f:'q0',v:'a',t:'q1'},{f:'q1',v:'a,b',t:'q1'},{f:'q1',v:'a',t:'q2'},{f:'q0',v:'b',t:'q4'},{f:'q4',v:'a,b',t:'q4'},{f:'q4',v:'b',t:'q5'}] },
+    aStarBStar: { acc:['q0','q1'], trans:[{f:'q0',v:'a',t:'q0'},{f:'q0',v:'b',t:'q1'},{f:'q1',v:'b',t:'q1'}] },
+    bStarAStar: { acc:['q0','q1'], trans:[{f:'q0',v:'b',t:'q0'},{f:'q0',v:'a',t:'q1'},{f:'q1',v:'a',t:'q1'}] },
+    anyAButOneB: { acc:['q1'], trans:[{f:'q0',v:'a',t:'q0'},{f:'q0',v:'b',t:'q1'},{f:'q1',v:'a,b',t:'q1'}] },
+    anyBButOneA: { acc:['q1'], trans:[{f:'q0',v:'b',t:'q0'},{f:'q0',v:'a',t:'q1'},{f:'q1',v:'a,b',t:'q1'}] }
+};
+
+function setupNFA() {
+    const type = document.getElementById('nfaMenu').value;
+    const conf = nfaConfigs[type];
+    const svg = document.getElementById('svgLines');
+    
+    document.querySelectorAll('.state').forEach(s => {
+        s.classList.remove('accept', 'active');
+        s.style.display = 'none';
+        if(conf.acc.includes(s.id)) s.classList.add('accept');
+    });
+
+    svg.innerHTML = svg.innerHTML.split('</defs>')[0] + '</defs>';
+    const used = new Set();
+    conf.trans.forEach(t => {
+        used.add(t.f); used.add(t.t);
+        drawLink(t.f, t.t, t.v);
+    });
+    used.forEach(id => document.getElementById(id).style.display = 'flex');
+    document.getElementById('status').innerText = "NFA Initialized";
+}
+
+function drawLink(s1, s2, label) {
+    const svg = document.getElementById('svgLines');
+    const b1 = document.getElementById(s1), b2 = document.getElementById(s2);
+    const x1 = parseInt(b1.style.left)+27, y1 = parseInt(b1.style.top)+27;
+    const x2 = parseInt(b2.style.left)+27, y2 = parseInt(b2.style.top)+27;
+
+    if(s1 === s2) {
+        svg.innerHTML += `<path d="M ${x1-15} ${y1-20} Q ${x1} ${y1-80} ${x1+15} ${y1-20}" class="arrow" />
+                          <text x="${x1-10}" y="${y1-65}" class="lbl">${label}</text>`;
+    } else {
+        svg.innerHTML += `<path d="M ${x1+25} ${y1} L ${x2-25} ${y2}" class="arrow" />
+                          <text x="${(x1+x2)/2}" y="${y1-12}" class="lbl">${label}</text>`;
+    }
+}
+
+async function startNFA() {
+    const type = document.getElementById('nfaMenu').value;
+    const input = document.getElementById('strInput').value.toLowerCase();
+    const config = nfaConfigs[type];
+    
+    let currentSet = new Set(['q0']);
+    refreshStates(currentSet);
+
+    for (let char of input) {
+        if (char !== 'a' && char !== 'b') continue;
+        await new Promise(r => setTimeout(r, 650));
+        
+        let nextSet = new Set();
+        currentSet.forEach(s => {
+            config.trans.forEach(t => {
+                if(t.f === s && t.v.includes(char)) nextSet.add(t.t);
+            });
+        });
+        currentSet = nextSet;
+        refreshStates(currentSet);
+        if(currentSet.size === 0) break;
+    }
+
+    const ok = [...currentSet].some(s => config.acc.includes(s));
+    const stat = document.getElementById('status');
+    stat.innerText = ok ? "Accepted ✅" : "Rejected ❌";
+    stat.style.color = ok ? "#27ae60" : "#e74c3c";
+}
+
+function refreshStates(set) {
+    document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+    set.forEach(id => document.getElementById(id).classList.add('active'));
+}
+
+window.onload = setupNFA;
+</script>
+</body>
+</html>

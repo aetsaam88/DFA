@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NFA Final 10 Patterns Simulator</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fdfdfd; padding: 20px; text-align: center; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); border: 1px solid #eee; }
+        h2 { color: #2c3e50; font-weight: 700; }
+        select { padding: 12px; width: 90%; border-radius: 10px; border: 2px solid #3498db; font-size: 16px; margin-bottom: 25px; cursor: pointer; outline: none; }
+        
+        .canvas { position: relative; width: 850px; height: 400px; margin: 20px auto; border: 1px solid #ececec; background: #fafafa; border-radius: 15px; overflow: hidden; }
+        .state { 
+            width: 55px; height: 55px; border-radius: 50%; border: 3px solid #34495e; 
+            position: absolute; display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; background: white; z-index: 10; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .accept { border: 6px double #27ae60; background: #f0fff4; }
+        .active { background: #3498db !important; color: white; transform: scale(1.15); box-shadow: 0 0 20px rgba(52, 152, 219, 0.5); }
+
+        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .arrow { stroke: #95a5a6; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead); transition: 0.3s; }
+        .lbl { font-size: 15px; font-weight: bold; fill: #2980b9; text-shadow: 1px 1px 0px white; }
+
+        .ui { margin-top: 30px; display: flex; justify-content: center; gap: 15px; }
+        input { padding: 15px; width: 300px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; transition: 0.3s; }
+        input:focus { border-color: #3498db; box-shadow: 0 0 8px rgba(52,152,219,0.2); outline: none; }
+        .btn { padding: 15px 30px; background: #3498db; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn:hover { background: #2980b9; }
+        #msg { font-size: 24px; margin-top: 20px; font-weight: bold; min-height: 35px; letter-spacing: 0.5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>NFA Interactive Lab</h2>
+    <p>Har transition ko arrows aur active states ke zariye live dekhein.</p>
+    
+    <select id="nfaType" onchange="initVisuals()">
+        <option value="exactly2A">1. Exactly two 'a's</option>
+        <option value="exactly2B">2. Exactly two 'b's</option>
+        <option value="oddA">3. Odd number of 'a's</option>
+        <option value="evenB">4. Even number of 'b's</option>
+        <option value="subABBA">5. Substring 'abba'</option>
+        <option value="subBAAB">6. Substring 'baab'</option>
+        <option value="noAA">7. Not containing 'aa'</option>
+        <option value="noBB">8. Not containing 'bb'</option>
+        <option value="aAndB">9. Contains 'a' and 'b' (Any order)</option>
+        <option value="atLeast2A">10. At least two 'a's</option>
+    </select>
+
+    <div class="canvas" id="canvas">
+        <svg id="svgRoot">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#95a5a6"/>
+                </marker>
+            </defs>
+        </svg>
+        <div id="q0" class="state" style="top:170px; left:60px;">q0</div>
+        <div id="q1" class="state" style="top:170px; left:220px;">q1</div>
+        <div id="q2" class="state" style="top:170px; left:380px;">q2</div>
+        <div id="q3" class="state" style="top:170px; left:540px;">q3</div>
+        <div id="q4" class="state" style="top:170px; left:700px;">q4</div>
+        <div id="q5" class="state" style="top:50px; left:380px; display:none;">q5</div>
+    </div>
+
+    <div class="ui">
+        <input id="inputStr" placeholder="Enter string (e.g., abba, baab)">
+        <button class="btn" onclick="startSim()">Simulate</button>
+    </div>
+    <div id="msg"></div>
+</div>
+
+<script>
+const nfaConfigs = {
+    exactly2A: { acc:['q2'], trans:[{f:'q0',v:'b',t:'q0'},{f:'q0',v:'a',t:'q1'},{f:'q1',v:'b',t:'q1'},{f:'q1',v:'a',t:'q2'},{f:'q2',v:'b',t:'q2'}] },
+    exactly2B: { acc:['q2'], trans:[{f:'q0',v:'a',t:'q0'},{f:'q0',v:'b',t:'q1'},{f:'q1',v:'a',t:'q1'},{f:'q1',v:'b',t:'q2'},{f:'q2',v:'a',t:'q2'}] },
+    oddA: { acc:['q1'], trans:[{f:'q0',v:'a',t:'q1'},{f:'q1',v:'a',t:'q0'},{f:'q0',v:'b',t:'q0'},{f:'q1',v:'b',t:'q1'}] },
+    evenB: { acc:['q0'], trans:[{f:'q0',v:'b',t:'q1'},{f:'q1',v:'b',t:'q0'},{f:'q0',v:'a',t:'q0'},{f:'q1',v:'a',t:'q1'}] },
+    subABBA: { acc:['q4'], trans:[{f:'q0',v:'a,b',t:'q0'},{f:'q0',v:'a',t:'q1'},{f:'q1',v:'b',t:'q2'},{f:'q2',v:'b',t:'q3'},{f:'q3',v:'a',t:'q4'},{f:'q4',v:'a,b',t:'q4'}] },
+    subBAAB: { acc:['q4'], trans:[{f:'q0',v:'a,b',t:'q0'},{f:'q0',v:'b',t:'q1'},{f:'q1',v:'a',t:'q2'},{f:'q2',v:'a',t:'q3'},{f:'q3',v:'b',t:'q4'},{f:'q4',v:'a,b',t:'q4'}] },
+    noAA: { acc:['q0','q1'], trans:[{f:'q0',v:'a',t:'q1'},{f:'q1',v:'b',t:'q0'},{f:'q0',v:'b',t:'q0'}] },
+    noBB: { acc:['q0','q1'], trans:[{f:'q0',v:'b',t:'q1'},{f:'q1',v:'a',t:'q0'},{f:'q0',v:'a',t:'q0'}] },
+    aAndB: { acc:['q3'], trans:[{f:'q0',v:'a',t:'q1'},{f:'q1',v:'b',t:'q3'},{f:'q0',v:'b',t:'q2'},{f:'q2',v:'a',t:'q3'},{f:'q1',v:'a',t:'q1'},{f:'q2',v:'b',t:'q2'},{f:'q3',v:'a,b',t:'q3'}] },
+    atLeast2A: { acc:['q2'], trans:[{f:'q0',v:'a,b',t:'q0'},{f:'q0',v:'a',t:'q1'},{f:'q1',v:'a',t:'q2'},{f:'q1',v:'b',t:'q1'},{f:'q2',v:'a,b',t:'q2'}] }
+};
+
+function initVisuals() {
+    const key = document.getElementById('nfaType').value;
+    const config = nfaConfigs[key];
+    const svg = document.getElementById('svgRoot');
+    
+    document.querySelectorAll('.state').forEach(s => {
+        s.classList.remove('accept', 'active');
+        s.style.display = 'none';
+        if(config.acc.includes(s.id)) s.classList.add('accept');
+    });
+
+    svg.innerHTML = svg.innerHTML.split('</defs>')[0] + '</defs>';
+    const used = new Set();
+    config.trans.forEach(t => {
+        used.add(t.f); used.add(t.t);
+        drawArrow(t.f, t.t, t.v);
+    });
+    used.forEach(id => document.getElementById(id).style.display = 'flex');
+    document.getElementById('msg').innerText = "System Ready";
+}
+
+function drawArrow(s1, s2, label) {
+    const svg = document.getElementById('svgRoot');
+    const b1 = document.getElementById(s1), b2 = document.getElementById(s2);
+    const x1 = parseInt(b1.style.left)+27, y1 = parseInt(b1.style.top)+27;
+    const x2 = parseInt(b2.style.left)+27, y2 = parseInt(b2.style.top)+27;
+
+    if(s1 === s2) {
+        svg.innerHTML += `<path d="M ${x1-15} ${y1-20} Q ${x1} ${y1-80} ${x1+15} ${y1-20}" class="arrow" />
+                          <text x="${x1-10}" y="${y1-65}" class="lbl">${label}</text>`;
+    } else {
+        svg.innerHTML += `<path d="M ${x1+25} ${y1} L ${x2-25} ${y2}" class="arrow" />
+                          <text x="${(x1+x2)/2}" y="${y1-12}" class="lbl">${label}</text>`;
+    }
+}
+
+async function startSim() {
+    const key = document.getElementById('nfaType').value;
+    const input = document.getElementById('inputStr').value.toLowerCase();
+    const config = nfaConfigs[key];
+    
+    let currentStates = new Set(['q0']);
+    updateStates(currentStates);
+
+    for (let char of input) {
+        if (char !== 'a' && char !== 'b') continue;
+        await new Promise(r => setTimeout(r, 600));
+        
+        let nextStates = new Set();
+        currentStates.forEach(s => {
+            config.trans.forEach(t => {
+                if(t.f === s && t.v.includes(char)) nextStates.add(t.t);
+            });
+        });
+        currentStates = nextStates;
+        updateStates(currentStates);
+        if(currentStates.size === 0) break;
+    }
+
+    const accepted = [...currentStates].some(s => config.acc.includes(s));
+    const msg = document.getElementById('msg');
+    msg.innerText = accepted ? "Result: Accepted ✅" : "Result: Rejected ❌";
+    msg.style.color = accepted ? "#27ae60" : "#e74c3c";
+}
+
+function updateStates(set) {
+    document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+    set.forEach(id => document.getElementById(id).classList.add('active'));
+}
+
+window.onload = initVisuals;
+</script>
+</body>
+</html>

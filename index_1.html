@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>20-in-1 DFA Simulator</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; text-align: center; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        select { padding: 12px; width: 80%; border-radius: 8px; border: 2px solid #3498db; font-size: 16px; margin-bottom: 20px; cursor: pointer; }
+        
+        .dfa-box { position: relative; width: 750px; height: 400px; margin: 20px auto; border: 1px solid #ddd; background: #fff; overflow: hidden; border-radius: 10px; }
+        .state { 
+            width: 60px; height: 60px; border-radius: 50%; border: 3px solid #333; 
+            position: absolute; display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; background: white; z-index: 10; transition: 0.3s;
+        }
+        .accept { border: 6px double #27ae60; background: #e8f5e9; }
+        .current { background: #f1c40f !important; transform: scale(1.1); box-shadow: 0 0 15px #f1c40f; }
+        .dead { border-color: #e74c3c; color: #e74c3c; }
+
+        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .arrow { stroke: #7f8c8d; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead); opacity: 0; transition: 0.3s; }
+        .lbl { font-size: 14px; font-weight: bold; fill: #d35400; opacity: 0; transition: 0.3s; }
+
+        .controls { margin-top: 20px; }
+        input { padding: 12px; width: 250px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
+        .btn { padding: 12px 25px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        #status { font-size: 20px; margin-top: 15px; font-weight: bold; min-height: 30px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>DFA Interactive Lab (20 Patterns)</h2>
+    
+    <select id="dfaSelect" onchange="loadDFA()">
+        <option value="startA">1. Starts with 'a'</option>
+        <option value="startB">2. Starts with 'b'</option>
+        <option value="startEndA">3. Starts and ends with 'a'</option>
+        <option value="startEndB">4. Starts and ends with 'b'</option>
+        <option value="exactlyTwoA">5. Exactly two 'a's</option>
+        <option value="exactlyTwoB">6. Exactly two 'b's</option>
+        <option value="evenAoddB">7. Even 'a's and Odd 'b's</option>
+        <option value="noAA">8. Not containing 'aa'</option>
+        <option value="noBB">9. Not containing 'bb'</option>
+        <option value="evenLen">10. Even length</option>
+        <option value="oddLen">11. Odd length</option>
+        <option value="subABA">12. Substring 'aba'</option>
+        <option value="subBAB">13. Substring 'bab'</option>
+        <option value="subAAB">14. Substring 'aab'</option>
+        <option value="subBBA">15. Substring 'bba'</option>
+        <option value="noConsecA">16. No consecutive 'a's</option>
+        <option value="noConsecB">17. No consecutive 'b's</option>
+        <option value="endAcontB">18. Ending 'a' + containing 'b'</option>
+        <option value="endBcontA">19. Ending 'b' + containing 'a'</option>
+        <option value="evenA">20. Even number of 'a's</option>
+    </select>
+
+    <div class="dfa-box">
+        <svg id="svgBox">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/>
+                </marker>
+            </defs>
+            </svg>
+        <div id="q0" class="state" style="top:150px; left:60px;">q0</div>
+        <div id="q1" class="state" style="top:150px; left:260px;">q1</div>
+        <div id="q2" class="state" style="top:150px; left:460px;">q2</div>
+        <div id="q3" class="state" style="top:150px; left:630px;">q3</div>
+    </div>
+
+    <div class="controls">
+        <input id="userInput" placeholder="Enter string (a, b)">
+        <button class="btn" onclick="runSimulation()">Simulate</button>
+    </div>
+    <div id="status"></div>
+</div>
+
+<script>
+// Configurations for all 20 DFAs
+const dfaList = {
+    startA: { acc:['q1'], trap:'q2', trans:{q0:{a:'q1',b:'q2'}, q1:{a:'q1',b:'q1'}, q2:{a:'q2',b:'q2'}} },
+    startB: { acc:['q1'], trap:'q2', trans:{q0:{a:'q2',b:'q1'}, q1:{a:'q1',b:'q1'}, q2:{a:'q2',b:'q2'}} },
+    startEndA: { acc:['q1'], trap:'q3', trans:{q0:{a:'q1',b:'q3'}, q1:{a:'q1',b:'q2'}, q2:{a:'q1',b:'q2'}, q3:{a:'q3',b:'q3'}} },
+    startEndB: { acc:['q1'], trap:'q3', trans:{q0:{b:'q1',a:'q3'}, q1:{b:'q1',a:'q2'}, q2:{b:'q1',a:'q2'}, q3:{a:'q3',b:'q3'}} },
+    exactlyTwoA: { acc:['q2'], trap:'q3', trans:{q0:{a:'q1',b:'q0'}, q1:{a:'q2',b:'q1'}, q2:{a:'q3',b:'q2'}, q3:{a:'q3',b:'q3'}} },
+    exactlyTwoB: { acc:['q2'], trap:'q3', trans:{q0:{b:'q1',a:'q0'}, q1:{b:'q2',a:'q1'}, q2:{b:'q3',a:'q2'}, q3:{a:'q3',b:'q3'}} },
+    evenAoddB: { acc:['q2'], trans:{q0:{a:'q1',b:'q2'}, q1:{a:'q0',b:'q3'}, q2:{a:'q3',b:'q0'}, q3:{a:'q2',b:'q1'}} },
+    noAA: { acc:['q0','q1'], trap:'q2', trans:{q0:{a:'q1',b:'q0'}, q1:{a:'q2',b:'q0'}, q2:{a:'q2',b:'q2'}} },
+    noBB: { acc:['q0','q1'], trap:'q2', trans:{q0:{b:'q1',a:'q0'}, q1:{b:'q2',a:'q0'}, q2:{b:'q2',a:'q2'}} },
+    evenLen: { acc:['q0'], trans:{q0:{a:'q1',b:'q1'}, q1:{a:'q0',b:'q0'}} },
+    oddLen: { acc:['q1'], trans:{q0:{a:'q1',b:'q1'}, q1:{a:'q0',b:'q0'}} },
+    subABA: { acc:['q3'], trans:{q0:{a:'q1',b:'q0'}, q1:{a:'q1',b:'q2'}, q2:{a:'q3',b:'q0'}, q3:{a:'q3',b:'q3'}} },
+    subBAB: { acc:['q3'], trans:{q0:{b:'q1',a:'q0'}, q1:{b:'q1',a:'q2'}, q2:{b:'q3',a:'q0'}, q3:{b:'q3',a:'q3'}} },
+    subAAB: { acc:['q3'], trans:{q0:{a:'q1',b:'q0'}, q1:{a:'q2',b:'q0'}, q2:{a:'q2',b:'q3'}, q3:{a:'q3',b:'q3'}} },
+    subBBA: { acc:['q3'], trans:{q0:{b:'q1',a:'q0'}, q1:{b:'q2',a:'q0'}, q2:{b:'q2',a:'q3'}, q3:{a:'q3',b:'q3'}} },
+    noConsecA: { acc:['q0','q1'], trap:'q2', trans:{q0:{a:'q1',b:'q0'}, q1:{a:'q2',b:'q0'}, q2:{a:'q2',b:'q2'}} },
+    noConsecB: { acc:['q0','q1'], trap:'q2', trans:{q0:{b:'q1',a:'q0'}, q1:{b:'q2',a:'q0'}, q2:{b:'q2',a:'q2'}} },
+    endAcontB: { acc:['q2'], trans:{q0:{b:'q1',a:'q0'}, q1:{a:'q2',b:'q1'}, q2:{a:'q2',b:'q1'}} },
+    endBcontA: { acc:['q2'], trans:{q0:{a:'q1',b:'q0'}, q1:{b:'q2',a:'q1'}, q2:{b:'q2',a:'q1'}} },
+    evenA: { acc:['q0'], trans:{q0:{a:'q1',b:'q0'}, q1:{a:'q0',b:'q1'}} }
+};
+
+function loadDFA() {
+    const key = document.getElementById('dfaSelect').value;
+    const config = dfaList[key];
+    document.querySelectorAll('.state').forEach(s => {
+        s.classList.remove('accept', 'dead', 'current');
+        if (config.acc.includes(s.id)) s.classList.add('accept');
+        if (config.trap === s.id) s.classList.add('dead');
+    });
+    document.getElementById('status').innerText = "DFA Loaded. Ready!";
+    drawArrows(config.trans);
+}
+
+function drawArrows(trans) {
+    const svg = document.getElementById('svgBox');
+    svg.innerHTML = svg.innerHTML.split('</defs>')[0] + '</defs>'; // Keep defs
+    
+    for (let fromState in trans) {
+        for (let char in trans[fromState]) {
+            const toState = trans[fromState][char];
+            // Simple arrow logic for visualization
+            const f = document.getElementById(fromState);
+            const t = document.getElementById(toState);
+            const x1 = parseInt(f.style.left) + 30;
+            const y1 = parseInt(f.style.top) + 30;
+            const x2 = parseInt(t.style.left) + 30;
+            const y2 = parseInt(t.style.top) + 30;
+
+            if (fromState === toState) {
+                // Self loop
+                const path = `<path d="M ${x1-10} ${y1-25} Q ${x1} ${y1-60} ${x1+10} ${y1-25}" class="arrow" style="opacity:1" />
+                              <text x="${x1-5}" y="${y1-55}" class="lbl" style="opacity:1">${char}</text>`;
+                svg.innerHTML += path;
+            } else {
+                const path = `<path d="M ${x1} ${y1} L ${x2} ${y2}" class="arrow" style="opacity:1" />
+                              <text x="${(x1+x2)/2}" y="${(y1+y2)/2 - 10}" class="lbl" style="opacity:1">${char}</text>`;
+                svg.innerHTML += path;
+            }
+        }
+    }
+}
+
+async function runSimulation() {
+    const key = document.getElementById('dfaSelect').value;
+    const input = document.getElementById('userInput').value.toLowerCase();
+    const config = dfaList[key];
+    let curr = 'q0';
+
+    loadDFA();
+    document.getElementById(curr).classList.add('current');
+
+    for (let char of input) {
+        if (char !== 'a' && char !== 'b') continue;
+        await new Promise(r => setTimeout(r, 600));
+        document.getElementById(curr).classList.remove('current');
+        curr = config.trans[curr][char] || curr;
+        document.getElementById(curr).classList.add('current');
+    }
+
+    const isAccepted = config.acc.includes(curr);
+    const status = document.getElementById('status');
+    status.innerText = isAccepted ? "Accepted ✅" : "Rejected ❌";
+    status.style.color = isAccepted ? "#27ae60" : "#e74c3c";
+}
+
+window.onload = loadDFA;
+</script>
+</body>
+</html>
