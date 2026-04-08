@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>DFA Substring & Pattern Simulator</title>
+
+<style>
+body { font-family:'Segoe UI',sans-serif; background:#f0f4f8; padding:20px; text-align:center; }
+
+.container{
+max-width:950px;
+margin:auto;
+background:white;
+padding:25px;
+border-radius:15px;
+box-shadow:0 8px 25px rgba(0,0,0,0.1);
+}
+
+.canvas{
+position:relative;
+width:800px;
+height:350px;
+margin:20px auto;
+border:1px solid #ddd;
+background:#fff;
+border-radius:10px;
+}
+
+.state{
+width:55px;
+height:55px;
+border-radius:50%;
+border:3px solid #34495e;
+position:absolute;
+display:flex;
+align-items:center;
+justify-content:center;
+font-weight:bold;
+background:white;
+transition:.3s;
+}
+
+.accept{
+border:6px double #27ae60;
+}
+
+.active{
+background:#3498db;
+color:white;
+transform:scale(1.1);
+box-shadow:0 0 15px #3498db;
+}
+
+input{
+padding:12px;
+width:280px;
+border:2px solid #ddd;
+border-radius:8px;
+font-size:16px;
+}
+
+.btn{
+padding:12px 25px;
+background:#3498db;
+color:white;
+border:none;
+border-radius:8px;
+cursor:pointer;
+font-weight:bold;
+}
+
+#msg{
+font-size:22px;
+margin-top:15px;
+font-weight:bold;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>DFA Pattern Simulator</h2>
+
+<select id="dfaType">
+<option value="subAA">1 Substring aa</option>
+<option value="subBB">2 Substring bb</option>
+<option value="subABA">3 Substring aba</option>
+<option value="subBAB">4 Substring bab</option>
+<option value="aStarB">5 a*b</option>
+<option value="bStarA">6 b*a</option>
+<option value="abOrBa">7 contains ab or ba</option>
+<option value="aaOrBb">8 contains aa or bb</option>
+<option value="startAendB">9 start a end b</option>
+<option value="startBendA">10 start b end a</option>
+</select>
+
+<div class="canvas">
+
+<div id="q0" class="state" style="top:150px; left:80px;">q0</div>
+<div id="q1" class="state" style="top:150px; left:300px;">q1</div>
+<div id="q2" class="state accept" style="top:150px; left:520px;">q2</div>
+<div id="q3" class="state" style="top:60px; left:520px;">q3</div>
+
+</div>
+
+<br>
+
+<input id="inputStr" placeholder="Enter string (a/b)">
+<button class="btn" onclick="runDFA()">Run DFA</button>
+
+<div id="msg"></div>
+
+</div>
+
+<script>
+
+const dfaData={
+
+subAA:{
+start:"q0",
+accept:["q2"],
+trans:{
+q0:{a:"q1",b:"q0"},
+q1:{a:"q2",b:"q0"},
+q2:{a:"q2",b:"q2"}
+}
+},
+
+subBB:{
+start:"q0",
+accept:["q2"],
+trans:{
+q0:{a:"q0",b:"q1"},
+q1:{a:"q0",b:"q2"},
+q2:{a:"q2",b:"q2"}
+}
+},
+
+subABA:{
+start:"q0",
+accept:["q3"],
+trans:{
+q0:{a:"q1",b:"q0"},
+q1:{a:"q1",b:"q2"},
+q2:{a:"q3",b:"q0"},
+q3:{a:"q3",b:"q3"}
+}
+},
+
+subBAB:{
+start:"q0",
+accept:["q3"],
+trans:{
+q0:{a:"q0",b:"q1"},
+q1:{a:"q2",b:"q1"},
+q2:{a:"q0",b:"q3"},
+q3:{a:"q3",b:"q3"}
+}
+},
+
+aStarB:{
+start:"q0",
+accept:["q1"],
+trans:{
+q0:{a:"q0",b:"q1"},
+q1:{a:"q2",b:"q2"},
+q2:{a:"q2",b:"q2"}
+}
+},
+
+bStarA:{
+start:"q0",
+accept:["q1"],
+trans:{
+q0:{a:"q1",b:"q0"},
+q1:{a:"q2",b:"q2"},
+q2:{a:"q2",b:"q2"}
+}
+}
+
+};
+
+async function runDFA(){
+
+let input=document.getElementById("inputStr").value;
+
+let type=document.getElementById("dfaType").value;
+
+let dfa=dfaData[type];
+
+let state=dfa.start;
+
+highlight(state);
+
+for(let ch of input){
+
+if(ch!=="a" && ch!=="b") continue;
+
+await new Promise(r=>setTimeout(r,600));
+
+state=dfa.trans[state][ch] || state;
+
+highlight(state);
+
+}
+
+let result=dfa.accept.includes(state);
+
+let msg=document.getElementById("msg");
+
+msg.innerText=result?"Accepted ✅":"Rejected ❌";
+
+msg.style.color=result?"green":"red";
+
+}
+
+function highlight(s){
+
+document.querySelectorAll(".state").forEach(e=>e.classList.remove("active"));
+
+document.getElementById(s).classList.add("active");
+
+}
+
+</script>
+
+</body>
+</html>
