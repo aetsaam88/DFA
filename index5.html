@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>DFA Interactive Simulator</title>
-
+<title>DFA Interactive Simulator with Transitions</title>
 <style>
 body { font-family:'Segoe UI',sans-serif; background:#f8f9fa; padding:20px; text-align:center; }
 
@@ -111,7 +110,7 @@ font-weight:bold;
 
 <h2>DFA Simulator (10 Patterns)</h2>
 
-<select id="dfaSelect">
+<select id="dfaSelect" onchange="drawTransitions()">
 <option value="endA">1 Ends with 'a'</option>
 <option value="endB">2 Ends with 'b'</option>
 <option value="startA">3 Starts with 'a'</option>
@@ -125,8 +124,7 @@ font-weight:bold;
 </select>
 
 <div class="canvas-area">
-
-<svg>
+<svg id="svgCanvas">
 <defs>
 <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
 <polygon points="0 0,10 3.5,0 7" fill="#3498db"/>
@@ -150,145 +148,80 @@ font-weight:bold;
 </div>
 
 <script>
-
+// DFA definitions
 const dfas = {
-
-endA:{
-start:'q0',
-accept:['q1'],
-trans:{
-q0:{a:'q1',b:'q0'},
-q1:{a:'q1',b:'q0'}
-}
-},
-
-endB:{
-start:'q0',
-accept:['q1'],
-trans:{
-q0:{a:'q0',b:'q1'},
-q1:{a:'q0',b:'q1'}
-}
-},
-
-startA:{
-start:'q0',
-accept:['q1'],
-trans:{
-q0:{a:'q1',b:'q2'},
-q1:{a:'q1',b:'q1'},
-q2:{a:'q2',b:'q2'}
-}
-},
-
-startB:{
-start:'q0',
-accept:['q1'],
-trans:{
-q0:{a:'q2',b:'q1'},
-q1:{a:'q1',b:'q1'},
-q2:{a:'q2',b:'q2'}
-}
-},
-
-evenA:{
-start:'q0',
-accept:['q0'],
-trans:{
-q0:{a:'q1',b:'q0'},
-q1:{a:'q0',b:'q1'}
-}
-},
-
-evenB:{
-start:'q0',
-accept:['q0'],
-trans:{
-q0:{a:'q0',b:'q1'},
-q1:{a:'q1',b:'q0'}
-}
-},
-
-oddA:{
-start:'q0',
-accept:['q1'],
-trans:{
-q0:{a:'q1',b:'q0'},
-q1:{a:'q0',b:'q1'}
-}
-},
-
-oddB:{
-start:'q0',
-accept:['q1'],
-trans:{
-q0:{a:'q0',b:'q1'},
-q1:{a:'q1',b:'q0'}
-}
-},
-
-subAB:{
-start:'q0',
-accept:['q2'],
-trans:{
-q0:{a:'q1',b:'q0'},
-q1:{a:'q1',b:'q2'},
-q2:{a:'q2',b:'q2'}
-}
-},
-
-subBA:{
-start:'q0',
-accept:['q2'],
-trans:{
-q0:{a:'q0',b:'q1'},
-q1:{a:'q2',b:'q1'},
-q2:{a:'q2',b:'q2'}
-}
-}
-
+endA:{start:'q0', accept:['q1'], trans:{q0:{a:'q1',b:'q0'}, q1:{a:'q1',b:'q0'}}},
+endB:{start:'q0', accept:['q1'], trans:{q0:{a:'q0',b:'q1'}, q1:{a:'q0',b:'q1'}}},
+startA:{start:'q0', accept:['q1'], trans:{q0:{a:'q1',b:'q2'}, q1:{a:'q1',b:'q1'}, q2:{a:'q2',b:'q2'}}},
+startB:{start:'q0', accept:['q1'], trans:{q0:{a:'q2',b:'q1'}, q1:{a:'q1',b:'q1'}, q2:{a:'q2',b:'q2'}}},
+evenA:{start:'q0', accept:['q0'], trans:{q0:{a:'q1',b:'q0'}, q1:{a:'q0',b:'q1'}}},
+evenB:{start:'q0', accept:['q0'], trans:{q0:{a:'q0',b:'q1'}, q1:{a:'q1',b:'q0'}}},
+oddA:{start:'q0', accept:['q1'], trans:{q0:{a:'q1',b:'q0'}, q1:{a:'q0',b:'q1'}}},
+oddB:{start:'q0', accept:['q1'], trans:{q0:{a:'q0',b:'q1'}, q1:{a:'q1',b:'q0'}}},
+subAB:{start:'q0', accept:['q2'], trans:{q0:{a:'q1',b:'q0'}, q1:{a:'q1',b:'q2'}, q2:{a:'q2',b:'q2'}}},
+subBA:{start:'q0', accept:['q2'], trans:{q0:{a:'q0',b:'q1'}, q1:{a:'q2',b:'q1'}, q2:{a:'q2',b:'q2'}}}
 };
 
 async function runDFA(){
-
 let input=document.getElementById("strIn").value;
 let type=document.getElementById("dfaSelect").value;
 let dfa=dfas[type];
-
 let state=dfa.start;
-
 update(state);
 
 for(let ch of input){
-
 if(ch!=='a' && ch!=='b') continue;
-
-await new Promise(r=>setTimeout(r,700));
-
+await new Promise(r=>setTimeout(r,600));
 state=dfa.trans[state][ch];
-
 update(state);
-
 }
 
 let accepted=dfa.accept.includes(state);
-
 let r=document.getElementById("res");
-
 r.innerText=accepted?"Accepted ✅":"Rejected ❌";
-
 r.style.color=accepted?"green":"red";
-
 }
 
+// highlight current state
 function update(s){
-
 document.querySelectorAll(".state").forEach(st=>st.classList.remove("active"));
-
 document.getElementById(s).classList.add("active");
-
 }
 
+// draw arrows dynamically
+function drawTransitions(){
+const type=document.getElementById("dfaSelect").value;
+const dfa=dfas[type];
+const svg=document.getElementById("svgCanvas");
+svg.querySelectorAll("path,label,text").forEach(e=>e.remove());
+svg.innerHTML=svg.innerHTML.split("</defs>")[0]+"</defs>";
+
+for(const from in dfa.trans){
+for(const sym in dfa.trans[from]){
+const to=dfa.trans[from][sym];
+drawArrow(from,to,sym);
+}
+}
+}
+
+// helper to draw arrow
+function drawArrow(from,to,label){
+const svg=document.getElementById("svgCanvas");
+const b1=document.getElementById(from), b2=document.getElementById(to);
+const x1=parseInt(b1.style.left)+30, y1=parseInt(b1.style.top)+30;
+const x2=parseInt(b2.style.left)+30, y2=parseInt(b2.style.top)+30;
+
+if(from===to){
+svg.innerHTML+=`<path d="M ${x1-15} ${y1-25} Q ${x1} ${y1-80} ${x1+15} ${y1-25}" class="arrow"/>
+<text x="${x1-10}" y="${y1-65}" class="lbl">${label}</text>`;
+}else{
+svg.innerHTML+=`<path d="M ${x1+30} ${y1} L ${x2-30} ${y2}" class="arrow"/>
+<text x="${(x1+x2)/2}" y="${y1-10}" class="lbl">${label}</text>`;
+}
+}
+
+// draw transitions initially
+drawTransitions();
 </script>
 
 </body>

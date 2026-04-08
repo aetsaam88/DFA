@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>DFA Substring & Pattern Simulator</title>
-
+<title>DFA Pattern Simulator</title>
 <style>
 body { font-family:'Segoe UI',sans-serif; background:#f0f4f8; padding:20px; text-align:center; }
 
@@ -74,9 +73,29 @@ margin-top:15px;
 font-weight:bold;
 }
 
+svg{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+pointer-events:none;
+}
+
+.arrow{
+stroke:#34495e;
+stroke-width:2;
+fill:none;
+marker-end:url(#arrowhead);
+}
+
+.lbl{
+font-size:14px;
+font-weight:bold;
+fill:#34495e;
+}
 </style>
 </head>
-
 <body>
 
 <div class="container">
@@ -84,25 +103,31 @@ font-weight:bold;
 <h2>DFA Pattern Simulator</h2>
 
 <select id="dfaType">
-<option value="subAA">1 Substring aa</option>
-<option value="subBB">2 Substring bb</option>
-<option value="subABA">3 Substring aba</option>
-<option value="subBAB">4 Substring bab</option>
+<option value="subAA">1 Substring 'aa'</option>
+<option value="subBB">2 Substring 'bb'</option>
+<option value="subABA">3 Substring 'aba'</option>
+<option value="subBAB">4 Substring 'bab'</option>
 <option value="aStarB">5 a*b</option>
 <option value="bStarA">6 b*a</option>
-<option value="abOrBa">7 contains ab or ba</option>
-<option value="aaOrBb">8 contains aa or bb</option>
+<option value="abOrBa">7 contains 'ab' or 'ba'</option>
+<option value="aaOrBb">8 contains 'aa' or 'bb'</option>
 <option value="startAendB">9 start a end b</option>
 <option value="startBendA">10 start b end a</option>
 </select>
 
 <div class="canvas">
+<svg id="svgCanvas">
+<defs>
+<marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+<polygon points="0 0,10 3.5,0 7" fill="#34495e"/>
+</marker>
+</defs>
+</svg>
 
 <div id="q0" class="state" style="top:150px; left:80px;">q0</div>
 <div id="q1" class="state" style="top:150px; left:300px;">q1</div>
 <div id="q2" class="state accept" style="top:150px; left:520px;">q2</div>
 <div id="q3" class="state" style="top:60px; left:520px;">q3</div>
-
 </div>
 
 <br>
@@ -115,9 +140,9 @@ font-weight:bold;
 </div>
 
 <script>
-
 const dfaData={
 
+// 1 substring aa
 subAA:{
 start:"q0",
 accept:["q2"],
@@ -128,6 +153,7 @@ q2:{a:"q2",b:"q2"}
 }
 },
 
+// 2 substring bb
 subBB:{
 start:"q0",
 accept:["q2"],
@@ -138,6 +164,7 @@ q2:{a:"q2",b:"q2"}
 }
 },
 
+// 3 substring aba
 subABA:{
 start:"q0",
 accept:["q3"],
@@ -149,6 +176,7 @@ q3:{a:"q3",b:"q3"}
 }
 },
 
+// 4 substring bab
 subBAB:{
 start:"q0",
 accept:["q3"],
@@ -160,6 +188,7 @@ q3:{a:"q3",b:"q3"}
 }
 },
 
+// 5 a*b
 aStarB:{
 start:"q0",
 accept:["q1"],
@@ -170,6 +199,7 @@ q2:{a:"q2",b:"q2"}
 }
 },
 
+// 6 b*a
 bStarA:{
 start:"q0",
 accept:["q1"],
@@ -182,49 +212,64 @@ q2:{a:"q2",b:"q2"}
 
 };
 
+function highlight(state){
+document.querySelectorAll(".state").forEach(e=>e.classList.remove("active"));
+document.getElementById(state).classList.add("active");
+}
+
 async function runDFA(){
-
 let input=document.getElementById("inputStr").value;
-
 let type=document.getElementById("dfaType").value;
-
 let dfa=dfaData[type];
-
 let state=dfa.start;
-
 highlight(state);
 
 for(let ch of input){
-
 if(ch!=="a" && ch!=="b") continue;
-
 await new Promise(r=>setTimeout(r,600));
-
 state=dfa.trans[state][ch] || state;
-
 highlight(state);
-
 }
 
 let result=dfa.accept.includes(state);
-
 let msg=document.getElementById("msg");
-
 msg.innerText=result?"Accepted ✅":"Rejected ❌";
-
 msg.style.color=result?"green":"red";
-
 }
 
-function highlight(s){
+// --- Draw transitions ---
+function drawTransitions(){
+const type = document.getElementById("dfaType").value;
+const dfa = dfaData[type];
+const svg = document.getElementById("svgCanvas");
+svg.querySelectorAll("path,text").forEach(e=>e.remove());
 
-document.querySelectorAll(".state").forEach(e=>e.classList.remove("active"));
-
-document.getElementById(s).classList.add("active");
-
+for(const from in dfa.trans){
+for(const sym in dfa.trans[from]){
+const to = dfa.trans[from][sym];
+drawArrow(from,to,sym);
 }
+}
+}
+
+function drawArrow(from,to,label){
+const svg = document.getElementById("svgCanvas");
+const b1 = document.getElementById(from), b2 = document.getElementById(to);
+const x1 = parseInt(b1.style.left)+27, y1 = parseInt(b1.style.top)+27;
+const x2 = parseInt(b2.style.left)+27, y2 = parseInt(b2.style.top)+27;
+
+if(from===to){
+svg.innerHTML += `<path d="M ${x1-15} ${y1-20} Q ${x1} ${y1-60} ${x1+15} ${y1-20}" class="arrow"/>
+<text x="${x1-10}" y="${y1-55}" class="lbl">${label}</text>`;
+}else{
+svg.innerHTML += `<path d="M ${x1+27} ${y1} L ${x2-27} ${y2}" class="arrow"/>
+<text x="${(x1+x2)/2}" y="${y1-10}" class="lbl">${label}</text>`;
+}
+}
+
+document.getElementById("dfaType").addEventListener("change", drawTransitions);
+drawTransitions();
 
 </script>
-
 </body>
 </html>
